@@ -4,16 +4,6 @@ The M3U Playlist Proxy is a lightweight and effective tool designed to forward e
 
 **Formats Supported:** The M3U Playlist Proxy supports Standard, TiviMate, Kodi, and VLC M3U formats. You can now use any of these formats when loading playlists into MPP.
 
-## Recommended Setup for Windows Users
-
-For Windows users, this is the recommended method to use the M3U Playlist Proxy.
-
-https://github.com/user-attachments/assets/5888656b-1dee-4dd2-8494-541c2934657d
-
-Simply download and extract the ZIP file, then run the setup_service.bat. This will install the m3u-playlist-proxy as a Windows service, allowing it to run seamlessly in the background. If you're not using a Windows machine or prefer a different setup, feel free to use one of the other options below.
-
-[![Download ZIP](https://img.shields.io/badge/Download-ZIP-brightgreen)](https://github.com/dtankdempse/m3u-playlist-proxy/raw/refs/heads/main/win/m3u-playlist-proxy.zip)
-
 ## Deploy to Vercel
 
 Vercel’s free tier includes 100 GB of bandwidth and 1,000 build minutes per month, making it an excellent option for deploying the m3u-playlist-proxy. This allocation is more than enough to manage personal stream proxying and development needs efficiently.
@@ -22,7 +12,7 @@ https://github.com/user-attachments/assets/4fd3c242-b1d0-4f2b-bccb-d0b98b8ba94e
 
 Click the button below to deploy this project to Vercel.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/import/project?template=https://github.com/dtankdempse/m3u-playlist-proxy)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/import/project?template=https://github.com/markcs/m3u-playlist-proxy)
 
 ### Steps to Deploy:
 
