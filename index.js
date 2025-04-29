@@ -16,10 +16,59 @@ http.createServer(async (req, res) => {
   try {
     const parsedUrl = url.parse(req.url, true);
     const pathname = parsedUrl.pathname;
+    
+    
+    
     const query = parsedUrl.query;
 	
-	console.log(`Incoming request: ${req.url}`);
-	console.log('Query parameters:', query);
+    console.log(`Incoming request: ${req.method} ${req.url}`);
+	  console.log('Query parameters:', query);
+
+       if (pathname === '/generate-url' && req.method === 'POST') {
+            let body = '';
+
+            req.on('data', chunk => {
+                body += chunk;
+            });
+
+            req.on('end', () => {
+                try {
+                    const requestData = JSON.parse(body);
+                    const playlistUrl = requestData.url;
+                    const headers = requestData.headers || {};
+                    const generatePlaylist = requestData.generatePlaylist || false;
+
+                    if (!playlistUrl) {
+                        res.writeHead(400, { 'Content-Type': 'text/plain' });
+                        return res.end('Error: Missing "url" parameter');
+                    }
+
+                    // Encode headers
+                    let headerString = Object.entries(headers)
+                        .map(([key, value]) => `${key}=${value}`)
+                        .join('|');
+
+                    const base64Encoded = headerString ? Buffer.from(headerString).toString('base64') : '';
+                    const baseUrl = `http://${req.headers.host}`;
+                    let fullUrl = baseUrl + (generatePlaylist ? "/playlist?url=" + encodeURIComponent(playlistUrl) : "?url=" + encodeURIComponent(playlistUrl));
+                    
+                    if (base64Encoded) {
+                        fullUrl += "&data=" + encodeURIComponent(base64Encoded);
+                    }
+
+                    res.writeHead(200, { 'Content-Type': 'text/plain' });
+                    return res.end(fullUrl);
+
+                } catch (error) {
+                    console.error('Error processing request:', error);
+                    res.writeHead(400, { 'Content-Type': 'text/plain' });
+                    return res.end('Invalid JSON format');
+                }
+            });
+
+            return;
+        }
+
 	
     if (pathname === '/' && !parsedUrl.search) {
       const html = `<!DOCTYPE html>
@@ -249,8 +298,13 @@ http.createServer(async (req, res) => {
     </div>
 
     <form id="headerForm">
+    
     <div>
         <label for="playlistUrl">Playlist URL (use comma for multiple URLs):</label>
+        <div>
+            <input type="checkbox" id="generatePlaylist">
+            <label for="generatePlaylist">Generate Playlist?</label>
+        </div>
         <div class="epg_container">
             <input type="checkbox" id="epgMerging" checked><label style="font-size:13px;margin-left:2px;">Merge epg's</label>
         </div>
@@ -448,7 +502,10 @@ http://example.com/playlist.m3u8
             });
 
             const baseUrl = window.location.origin;
-            let fullUrl = baseUrl + "/playlist?url=" + encodeURIComponent(playlistUrl);
+            //let fullUrl = baseUrl + "/playlist?url=" + encodeURIComponent(playlistUrl);
+
+            const generatePlaylist = !document.getElementById('generatePlaylist').checked;
+            let fullUrl = baseUrl + (generatePlaylist ? "?" : "/playlist?") + "url=" + encodeURIComponent(playlistUrl);
 
             // Encode headers if present
             if (headers.length > 0) {

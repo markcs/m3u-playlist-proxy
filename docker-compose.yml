@@ -1,7 +1,10 @@
-version: '3.8'
 
 services:
   m3u-playlist-proxy:
-    image: dtankdemp/m3u-playlist-proxy
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "4912:4123"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
