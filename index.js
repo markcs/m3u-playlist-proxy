@@ -23,6 +23,7 @@ http.createServer(async (req, res) => {
 	
     console.log(`Incoming request: ${req.method} ${req.url}`);
 	  console.log('Query parameters:', query);
+	  console.log('pathname parameters:', pathname);
 
        if (pathname === '/generate-url' && req.method === 'POST') {
             let body = '';
@@ -292,7 +293,7 @@ http.createServer(async (req, res) => {
     </style>
 </head>
 <body>
-    <center><h3>M3U Playlist Proxy</h3></center>
+    <center><h3>Playlist Proxy</h3></center>
     <div class="container">
         <p>Use the form below to generate a playlist with the necessary headers. For example, if the server requires a "Referer: http://example.com" header to allow streaming, you would enter "Referer" as the Header Name and "http://example.com" as the Header Value. <a href="#" id="help-button">More Info.</a></p>
     </div>
@@ -659,6 +660,8 @@ http://example.com/playlist.m3u8
 
     let requestUrl = query.url ? decodeURIComponent(query.url) : null;
     let secondaryUrl = query.url2 ? decodeURIComponent(query.url2) : null;
+    console.log("MXS requestUrl: ",requestUrl);
+    console.log("MXS secondaryUrl: ",secondaryUrl);
     let data = query.data ? Buffer.from(query.data, 'base64').toString() : null;
     const isMaster = !query.url2;
     let finalRequestUrl = isMaster ? requestUrl : secondaryUrl;
@@ -673,7 +676,7 @@ http://example.com/playlist.m3u8
 	  // Handle Streamed.Su URL
       if (finalRequestUrl.includes('vipstreams.in')) {
         if (finalRequestUrl.includes('playlist.m3u8') && !finalRequestUrl.includes('&su=1') && !finalRequestUrl.includes('?id=')) {
-			console.log('Test Final URL:', finalRequestUrl);
+			    console.log('Test Final URL:', finalRequestUrl);
           const path = finalRequestUrl.replace('https://rr.vipstreams.in/', '');
           const token = await StreamedSUgetSessionId(path);
           finalRequestUrl = finalRequestUrl.replace('playlist.m3u8', `playlist.m3u8?id=${token}`);
@@ -689,9 +692,11 @@ http://example.com/playlist.m3u8
         }
       }
 
+     
       const dataType = isMaster ? 'text' : 'binary';
+      console.log('dataType:', dataType);
       const result = await fetchContent(finalRequestUrl, data, dataType);
-
+      
       //console.log("Fetched content length:", result.content.length);
 
       if (result.status >= 400) {
@@ -700,11 +705,38 @@ http://example.com/playlist.m3u8
         return;
       }
 
-      let content = result.content;
+       let content = result.content;
       //console.log("Initial content:", content);
 
-      if (isMaster) {
+      // Handle vidio stream url
+      if ( ((result.finalUrl).includes('vidio')) && ((result.finalUrl).includes('index.m3u8'))  ) {
+        baseUrl = new URL(result.finalUrl).origin;
+        if (finalRequestUrl.includes('index.m3u8'))  {
+           const lastSlashIndex = finalRequestUrl.lastIndexOf('/');
+
+           // Use the slice method to extract the portion of the string up to and including the last '/'
+           let resultUrl = finalRequestUrl; // Initialize result with the original URL.
+
+           if (lastSlashIndex !== -1) {
+               resultUrl = finalRequestUrl.slice(0, lastSlashIndex + 1); // Changed to include the slash
+           }
+           baseUrl = new URL(resultUrl);
+           baseUrl = resultUrl;
+           console.log('Test Final URL:', baseUrl);
+        //   const proxyUrl = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
+        //   content = rewriteUrls(content, baseUrl, proxyUrl, query.data);             
+        }
+        //else {
+        //  const baseUrl = new URL(result.finalUrl).origin;
+        //}
+          console.log('MXS baseUrl v', baseUrl);
+          const proxyUrl = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
+          content = rewriteUrls(content, baseUrl, proxyUrl, query.data);        
+      }
+      
+      else if (isMaster) {
         const baseUrl = new URL(result.finalUrl).origin;
+        console.log('MXS baseUrl', baseUrl);
         const proxyUrl = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
         content = rewriteUrls(content, baseUrl, proxyUrl, query.data);
         //console.log("Processed content:", content);
@@ -928,8 +960,9 @@ function rewriteUrls(content, baseUrl, proxyUrl, data) {
     const lines = content.split('\n');
     const rewrittenLines = [];
     let isNextLineUri = false;
-
+    console.log("MXS1a:", baseUrl);
     lines.forEach(line => {
+      //console.log("MXS1:", line);
       if (line.startsWith('#')) {
         if (line.includes('URI="')) {
           const uriMatch = line.match(/URI="([^"]+)"/i);
@@ -945,18 +978,33 @@ function rewriteUrls(content, baseUrl, proxyUrl, data) {
 
         rewrittenLines.push(line);
 
-        if (line.includes('#EXT-X-STREAM-INF')) {
+        if ( (line.includes('#EXT-X-STREAM-INF'))  )  {
           isNextLineUri = true;
         }
-      } else if (line.startsWith('http') || isNextLineUri) {
+      } else if (line.startsWith('http') || isNextLineUri || (line.includes('.ts')) ) {
         const urlParam = isNextLineUri ? 'url' : 'url2';
         let lineUrl = line;
+        console.log("MXS2 line:", line);
+        console.log("MXS2 baseUrl:", baseUrl);
+        console.log("MXS2 urlParam:", urlParam);
 
         if (!lineUrl.startsWith('http')) {
           lineUrl = new URL(lineUrl, baseUrl).href;
         }
+        else if (baseUrl.includes("vidio")) {
+          let lineUrl = line;
+          console.log("MXS2:", line);
+          console.log("MXS2:", baseUrl);          
+          lineUrl = baseUrl + lineUrl;
+          console.log("MXS2:", lineUrl);
+        }
+        
 
+        
+        //console.log("MXS2a:", lineUrl);        
+        
         const fullUrl = `${proxyUrl}?${urlParam}=${encodeURIComponent(lineUrl)}&data=${encodeURIComponent(data)}${urlParam === 'url' ? '&type=/index.m3u8' : '&type=/index.ts'}`;
+        //console.log("MXS2b:", fullUrl);
         rewrittenLines.push(fullUrl);
 
         isNextLineUri = false;
@@ -964,7 +1012,7 @@ function rewriteUrls(content, baseUrl, proxyUrl, data) {
         rewrittenLines.push(line);
       }
     });
-
+    console.log("MXS3:", rewrittenLines);
     return rewrittenLines.join('\n');
   } catch (err) {
     console.error('Error in rewriteUrls:', err);
